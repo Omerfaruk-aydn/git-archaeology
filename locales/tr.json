@@ -1,0 +1,81 @@
+{
+    "analysis": {
+        "started": "Analiz başlatıldı: {repo_name}",
+        "completed": "Analiz tamamlandı: {repo_name}",
+        "failed": "Analiz başarısız: {error}",
+        "progress": "İlerleme: {progress}%",
+        "pending": "Beklemede",
+        "running": "Çalışıyor",
+        "completed_status": "Tamamlandı",
+        "failed_status": "Başarısız"
+    },
+    "report": {
+        "generated": "Rapor oluşturuldu: {report_type}",
+        "download": "Raporu indir",
+        "full": "Kapsamlı Rapor",
+        "summary": "Özet Rapor",
+        "security": "Güvenlik Raporu",
+        "architecture": "Mimari Rapor",
+        "legacy": "Legacy Kod Raporu"
+    },
+    "repository": {
+        "created": "Depo oluşturuldu: {name}",
+        "deleted": "Depo silindi: {name}",
+        "analyzed": "Depo analiz edildi: {name}"
+    },
+    "auth": {
+        "login_success": "Giriş başarılı",
+        "login_failed": "Giriş başarısız",
+        "register_success": "Kayıt başarılı",
+        "register_failed": "Kayıt başarısız",
+        "logout": "Çıkış yapıldı",
+        "unauthorized": "Yetkisiz erişim"
+    },
+    "errors": {
+        "not_found": "Bulunamadı",
+        "unauthorized": "Yetkisiz erişim",
+        "forbidden": "Erişim reddedildi",
+        "server_error": "Sunucu hatası",
+        "validation_error": "Doğrulama hatası",
+        "network_error": "Ağ hatası",
+        "timeout": "Zaman aşımı",
+        "rate_limit": "Çok fazla istek. Lütfen bekleyin."
+    },
+    "dashboard": {
+        "title": "Gösterge Paneli",
+        "total_repos": "Toplam Depo",
+        "total_commits": "Toplam Commit",
+        "total_analyses": "Toplam Analiz",
+        "recent_activity": "Son Aktivite",
+        "quick_actions": "Hızlı İşlemler"
+    },
+    "common": {
+        "loading": "Yükleniyor...",
+        "save": "Kaydet",
+        "cancel": "İptal",
+        "delete": "Sil",
+        "edit": "Düzenle",
+        "create": "Oluştur",
+        "search": "Ara",
+        "filter": "Filtrele",
+        "export": "Dışa Aktar",
+        "import": "İçe Aktar",
+        "refresh": "Yenile",
+        "back": "Geri",
+        "next": "İleri",
+        "previous": "Önceki",
+        "page": "Sayfa",
+        "of": "/",
+        "no_data": "Veri bulunamadı",
+        "confirm_delete": "Silmek istediğinize emin misiniz?",
+        "yes": "Evet",
+        "no": "Hayır"
+    },
+    "settings": {
+        "title": "Ayarlar",
+        "general": "Genel Ayarlar",
+        "llm": "LLM Yapılandırması",
+        "notifications": "Bildirimler",
+        "security": "Güvenlik"
+    }
+}
