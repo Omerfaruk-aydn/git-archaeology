@@ -827,8 +827,8 @@ curl -X POST http://localhost:8000/api/v1/repositories \
   "description": "Açıklama",
   "is_analyzed": false,
   "last_analyzed_at": null,
-  "created_at": "2024-01-15T10:30:00Z",
-  "updated_at": "2024-01-15T10:30:00Z"
+  "created_at": "2026-01-15T10:30:00Z",
+  "updated_at": "2026-01-15T10:30:00Z"
 }
 ```
 
@@ -863,7 +863,7 @@ curl -X POST http://localhost:8000/api/v1/analyses \
   "error_message": null,
   "started_at": null,
   "completed_at": null,
-  "created_at": "2024-01-15T10:35:00Z"
+  "created_at": "2026-01-15T10:35:00Z"
 }
 ```
 
@@ -1495,7 +1495,7 @@ python -m uvicorn app.main:app --reload
 
 ## 📝 Changelog
 
-### [1.0.0] - 2024-01-15
+### [1.0.0] - 2026-01-15
 
 #### ✨ Eklenenler
 - 🎉 İlk sürüm yayınlandı
@@ -1570,7 +1570,7 @@ Bu proje **MIT Lisansı** altında yayınlanmıştır.
 ```
 MIT License
 
-Copyright (c) 2024 GitArch Team
+Copyright (c) 2026 GitArch Team
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2526,6 +2526,6 @@ Bu projede kullanılan harika teknolojiler:
 
 Made with ❤️ by **GitArch Team**
 
-© 2024 GitArch. Tüm hakları saklıdır.
+© 2026 GitArch. Tüm hakları saklıdır.
 
 </div>
