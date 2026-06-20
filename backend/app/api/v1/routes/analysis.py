@@ -183,6 +183,34 @@ async def get_analysis_result(
     repo = db.query(Repository).filter(Repository.id == str(analysis.repository_id)).first()
     repo_name = repo.name if repo else "bilinmeyen"
 
+    from app.models.repository import Commit, FileChange
+    from collections import defaultdict
+
+    commits = db.query(Commit).filter(
+        Commit.repository_id == str(analysis.repository_id),
+    ).all()
+
+    author_stats = defaultdict(lambda: {"name": "", "commits": 0, "additions": 0, "deletions": 0})
+    for c in commits:
+        a = author_stats[c.author_name]
+        a["name"] = c.author_name
+        a["commits"] += 1
+        a["additions"] += c.additions
+        a["deletions"] += c.deletions
+    author_contributions = sorted(author_stats.values(), key=lambda x: x["commits"], reverse=True)
+
+    file_changes = db.query(FileChange).join(Commit).filter(
+        Commit.repository_id == str(analysis.repository_id),
+    ).all()
+    file_freq = defaultdict(lambda: {"path": "", "changes": 0, "additions": 0, "deletions": 0})
+    for fc in file_changes:
+        f = file_freq[fc.file_path]
+        f["path"] = fc.file_path
+        f["changes"] += 1
+        f["additions"] += fc.additions
+        f["deletions"] += fc.deletions
+    file_hotspots = sorted(file_freq.values(), key=lambda x: x["changes"], reverse=True)[:20]
+
     return AnalysisResult(
         analysis_id=str(analysis.id),
         repository_name=repo_name,
@@ -193,10 +221,10 @@ async def get_analysis_result(
             "total_additions": result.get("total_additions", 0),
             "total_deletions": result.get("total_deletions", 0),
         },
-        key_changes=result.get("top_files", []),
-        author_contributions=[],
-        file_hotspots=result.get("top_files", []),
-        insights=llm.get("key_trends", []),
+        key_changes=file_hotspots,
+        author_contributions=author_contributions,
+        file_hotspots=file_hotspots,
+        insights=llm.get("key_trends", []) + llm.get("potential_risks", []),
         recommendations=llm.get("recommendations", []),
     )
 

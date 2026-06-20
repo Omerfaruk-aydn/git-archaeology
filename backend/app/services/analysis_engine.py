@@ -177,22 +177,55 @@ class AnalysisEngine:
         }
 
         try:
-            summary_prompt = f"""Git depo analiz sonuclarini ozetle:
+            author_details = []
+            for c in commits:
+                author_details.append(f"- {c.author_name}: {c.message[:80]} (+{c.additions}/-{c.deletions})")
+            
+            category_str = ', '.join([f'{k}: {v}' for k, v in categories.items()]) if categories else 'Belirlenmedi'
+            top_files_str = chr(10).join([f'- {f}: {c} degisiklik' for f, c in top_files[:10]]) if top_files else 'Dosya degisikligi yok'
+            dates_str = f"{min(c.author_date for c in commits).strftime('%d.%m.%Y')} - {max(c.author_date for c in commits).strftime('%d.%m.%Y')}" if commits else 'Tarih belirsiz'
+            
+            summary_prompt = f"""Sen profesyonel bir yazilim analistisin. Asagidaki Git depo verilerini detayli ve profesyonel bir sekilde analiz et.
 
-Depo: {repo.name}
+=== DEPO BILGILERI ===
+Depo Adi: {repo.name}
+Analiz Araligi: {dates_str}
 Toplam Commit: {len(commits)}
-Yazar Sayisi: {len(unique_authors)}
-Toplam Degisiklik: +{total_additions} -{total_deletions}
+Benzersiz Yazar: {len(unique_authors)}
+Toplam Eklenen Satir: {total_additions}
+Toplam Silinen Satir: {total_deletions}
+Kategori Dagilimi: {category_str}
 
-En cok degisen dosyalar:
-{chr(10).join([f'- {f}: {c} degisiklik' for f, c in top_files[:10]])}
+=== EN COK DEGISEN DOSYALAR ===
+{top_files_str}
+
+=== COMMIT DETAYLARI ===
+{chr(10).join(author_details[:15])}
+
+=== YAZAR KATKILARI ===
+{chr(10).join([f'- {a}: {sum(1 for c in commits if c.author_name == a)} commit, +{sum(c.additions for c in commits if c.author_name == a)}/-{sum(c.deletions for c in commits if c.author_name == a)}' for a in unique_authors])}
+
+Lutfen su sekilde profesyonel ve detayli bir analiz raporu olustur:
+
+1. OVERALL SUMMARY: Proje hakkinda 3-4 cumleden olusan profesyonel bir ozet. Nasil bir proje, ne amacla gelistiriliyor, su anki durumu ne.
+
+2. KEY TRENDS (5-8 madde): Kod tabanindaki onemli trendler. Hangi moduller aktif gelistiriliyor, hangileri pasif, gelistirme hizi nasil, vs.
+
+3. POTENTIAL RISKS (3-5 madde): Potansiyel riskler ve teknik borclar. Bakim gerektiren alanlar, guvenlik endiseleri, performans sorunlari.
+
+4. RECOMMENDATIONS (5-8 madde): Somut ve uygulanabilir oneriler. Iyilestirme onerileri, best practice onerileri, mimari oneriler.
+
+5. HIGHLIGHTS (3-5 madde): One cikan basarilar ve olumlu yanlar.
+
+Her maddeyi spesifik ve detayli yaz. Bos veya genel ifadelerden kacin.
 
 JSON formatinda ver:
 {{
-  "overall_summary": "...",
-  "key_trends": ["trend1"],
-  "potential_risks": ["risk1"],
-  "recommendations": ["rec1"]
+  "overall_summary": "Detayli proje ozeti (3-4 cumle)",
+  "key_trends": ["Trend 1 - detayli aciklama", "Trend 2 - detayli aciklama", "..."],
+  "potential_risks": ["Risk 1 - detayli aciklama", "Risk 2 - detayli aciklama", "..."],
+  "recommendations": ["Oneri 1 - detayli aciklama", "Oneri 2 - detayli aciklama", "..."],
+  "highlights": ["Basari 1 - detayli aciklama", "Basari 2 - detayli aciklama", "..."]
 }}"""
 
             llm_summary = await self.llm.generate_summary(summary_prompt)
