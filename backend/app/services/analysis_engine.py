@@ -21,40 +21,35 @@ class AnalysisEngine:
         self.git = git_service
         self.llm = llm_service
 
-    async def run_full_analysis(
+    async def run_existing_analysis(
         self,
         repo: Repository,
-        config: AnalysisCreate,
+        analysis: Analysis,
+        config: dict,
     ) -> Analysis:
-        analysis = Analysis(
-            repository_id=repo.id,
-            status="running",
-            config=config.model_dump(),
-            started_at=datetime.utcnow(),
-        )
-        self.db.add(analysis)
-        self.db.commit()
-        self.db.refresh(analysis)
+        branch = config.get("branch") or repo.default_branch
+        max_commits = config.get("max_commits", 100)
+        batch_size = config.get("batch_size", 10)
+        include_diffs = config.get("include_diffs", True)
+        focus_areas = config.get("focus_areas", [])
 
         try:
             commits = self.git.get_commits(
-                branch=config.branch or repo.default_branch,
-                max_count=config.max_commits,
-                start_date=config.start_date,
-                end_date=config.end_date,
+                branch=branch,
+                max_count=max_commits,
             )
 
             analysis.total_commits = len(commits)
             self.db.commit()
 
-            for i in range(0, len(commits), config.batch_size):
-                batch = commits[i:i + config.batch_size]
-                await self._process_commit_batch(batch, analysis, config)
+            for i in range(0, len(commits), batch_size):
+                batch = commits[i:i + batch_size]
+                await self._process_commit_batch_existing(batch, analysis, include_diffs, focus_areas)
                 analysis.processed_commits = i + len(batch)
-                analysis.progress = (i + len(batch)) / len(commits) * 100
+                analysis.progress = (i + len(batch)) / len(commits) * 100 if commits else 100
                 self.db.commit()
 
-            summary = await self._generate_summary(analysis, repo, config)
+            summary = await self._generate_summary_existing(analysis, repo)
             analysis.result = summary
             analysis.status = "completed"
             analysis.completed_at = datetime.utcnow()
@@ -62,12 +57,156 @@ class AnalysisEngine:
             self.db.commit()
 
         except Exception as e:
-            logger.error(f"Analiz hatası: {e}")
+            logger.error(f"Analiz hatasi: {e}")
             analysis.status = "failed"
             analysis.error_message = str(e)
             self.db.commit()
 
         return analysis
+
+    async def _process_commit_batch_existing(
+        self,
+        commits: List[GitCommitInfo],
+        analysis: Analysis,
+        include_diffs: bool,
+        focus_areas: List[str],
+    ):
+        for commit_info in commits:
+            existing = self.db.query(Commit).filter(
+                Commit.sha == commit_info.sha,
+                Commit.analyzed == True,
+            ).first()
+
+            if existing:
+                continue
+
+            commit = self.db.query(Commit).filter(Commit.sha == commit_info.sha).first()
+            if not commit:
+                commit = Commit(
+                    repository_id=analysis.repository_id,
+                    sha=commit_info.sha,
+                    message=commit_info.message,
+                    author_name=commit_info.author_name,
+                    author_email=commit_info.author_email,
+                    author_date=commit_info.author_date,
+                    committer_name=commit_info.committer_name,
+                    committer_email=commit_info.committer_email,
+                    committer_date=commit_info.committer_date,
+                    parents=commit_info.parents,
+                )
+                self.db.add(commit)
+
+            stats = self.git.get_commit_stats(commit_info.sha)
+            commit.additions = stats.get("insertions", 0)
+            commit.deletions = stats.get("deletions", 0)
+            commit.files_changed = stats.get("files_changed", 0)
+
+            file_changes = []
+            if include_diffs:
+                file_changes = self.git.get_file_changes(commit_info.sha, include_diff=True)
+                for fc in file_changes:
+                    file_change = FileChange(
+                        commit_id=commit.id,
+                        file_path=fc.file_path,
+                        old_path=fc.old_path,
+                        change_type=fc.change_type,
+                        additions=fc.additions,
+                        deletions=fc.deletions,
+                        diff=fc.diff,
+                        old_content=fc.old_content,
+                        new_content=fc.new_content,
+                    )
+                    self.db.add(file_change)
+
+            if focus_areas:
+                try:
+                    llm_result = await self.llm.analyze_commit(
+                        commit_message=commit.message,
+                        file_changes=[fc.model_dump() for fc in file_changes],
+                        focus_areas=focus_areas,
+                    )
+                    commit.analysis_result = llm_result
+                    commit.analyzed = True
+                except Exception as e:
+                    logger.error(f"LLM analiz hatasi: {e}")
+
+            self.db.add(commit)
+            self.db.commit()
+
+    async def _generate_summary_existing(
+        self,
+        analysis: Analysis,
+        repo: Repository,
+    ) -> Dict[str, Any]:
+        commits = self.db.query(Commit).filter(
+            Commit.repository_id == repo.id,
+            Commit.analyzed == True,
+        ).all()
+
+        total_additions = sum(c.additions for c in commits)
+        total_deletions = sum(c.deletions for c in commits)
+        unique_authors = list(set(c.author_name for c in commits))
+
+        file_changes = self.db.query(FileChange).join(Commit).filter(
+            Commit.repository_id == repo.id,
+        ).all()
+
+        file_frequency = defaultdict(int)
+        for fc in file_changes:
+            file_frequency[fc.file_path] += 1
+
+        top_files = sorted(file_frequency.items(), key=lambda x: x[1], reverse=True)[:20]
+
+        categories = defaultdict(int)
+        for commit in commits:
+            if commit.analysis_result and "category" in commit.analysis_result:
+                categories[commit.analysis_result["category"]] += 1
+
+        summary = {
+            "total_commits": len(commits),
+            "total_additions": total_additions,
+            "total_deletions": total_deletions,
+            "unique_authors": len(unique_authors),
+            "authors": unique_authors,
+            "date_range": {
+                "start": min(c.author_date for c in commits).isoformat() if commits else None,
+                "end": max(c.author_date for c in commits).isoformat() if commits else None,
+            },
+            "top_files": [{"path": f, "changes": c} for f, c in top_files],
+            "category_distribution": dict(categories),
+        }
+
+        try:
+            summary_prompt = f"""Git depo analiz sonuclarini ozetle:
+
+Depo: {repo.name}
+Toplam Commit: {len(commits)}
+Yazar Sayisi: {len(unique_authors)}
+Toplam Degisiklik: +{total_additions} -{total_deletions}
+
+En cok degisen dosyalar:
+{chr(10).join([f'- {f}: {c} degisiklik' for f, c in top_files[:10]])}
+
+JSON formatinda ver:
+{{
+  "overall_summary": "...",
+  "key_trends": ["trend1"],
+  "potential_risks": ["risk1"],
+  "recommendations": ["rec1"]
+}}"""
+
+            llm_summary = await self.llm.generate_summary(summary_prompt)
+            summary["llm_summary"] = llm_summary
+        except Exception as e:
+            logger.error(f"LLM ozet hatasi: {e}")
+            summary["llm_summary"] = {
+                "overall_summary": f"Toplam {len(commits)} commit, {len(unique_authors)} yazar. En cok degisen dosyalar: {', '.join([f for f, _ in top_files[:5]])}",
+                "key_trends": [],
+                "potential_risks": [],
+                "recommendations": [],
+            }
+
+        return summary
 
     async def _process_commit_batch(
         self,

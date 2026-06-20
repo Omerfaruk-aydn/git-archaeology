@@ -20,14 +20,14 @@ async def generate_report(
     current_user=Depends(get_current_user),
 ):
     repo = db.query(Repository).filter(
-        Repository.id == data.repository_id,
-        Repository.owner_id == current_user.id,
+        Repository.id == str(data.repository_id),
+        Repository.owner_id == str(current_user.id),
     ).first()
 
     if not repo:
-        raise HTTPException(status_code=404, detail="Depo bulunamadı")
+        raise HTTPException(status_code=404, detail="Depo bulunamadi")
 
-    llm_service = LLMService(provider="openai")
+    llm_service = LLMService(provider="openrouter")
     report_service = ReportService(db, llm_service)
 
     try:
@@ -43,8 +43,8 @@ async def generate_report(
 
         from datetime import datetime
         report = ReportResponse(
-            id=uuid.uuid4(),
-            repository_id=data.repository_id,
+            id=str(uuid.uuid4()),
+            repository_id=str(data.repository_id),
             report_type=data.report_type,
             content=result["content"],
             format=result["format"],
@@ -59,20 +59,20 @@ async def generate_report(
 
 @router.get("/{repo_id}/archeological/{file_path:path}")
 async def get_archeological_report(
-    repo_id: uuid.UUID,
+    repo_id: str,
     file_path: str,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     repo = db.query(Repository).filter(
-        Repository.id == repo_id,
-        Repository.owner_id == current_user.id,
+        Repository.id == str(repo_id),
+        Repository.owner_id == str(current_user.id),
     ).first()
 
     if not repo:
-        raise HTTPException(status_code=404, detail="Depo bulunamadı")
+        raise HTTPException(status_code=404, detail="Depo bulunamadi")
 
-    llm_service = LLMService(provider="openai")
+    llm_service = LLMService(provider="openrouter")
     report_service = ReportService(db, llm_service)
 
     try:

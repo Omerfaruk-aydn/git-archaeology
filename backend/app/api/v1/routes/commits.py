@@ -1,7 +1,6 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-import uuid
 
 from app.database import get_db
 from app.services.git_service import GitService
@@ -15,24 +14,22 @@ router = APIRouter(prefix="/commits", tags=["commits"])
 
 @router.get("/")
 async def list_commits(
-    repo_id: uuid.UUID,
+    repo_id: str,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     author: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     repo = db.query(Repository).filter(
-        Repository.id == repo_id,
-        Repository.owner_id == current_user.id,
+        Repository.id == str(repo_id),
+        Repository.owner_id == str(current_user.id),
     ).first()
 
     if not repo:
-        raise HTTPException(status_code=404, detail="Depo bulunamadı")
+        raise HTTPException(status_code=404, detail="Depo bulunamadi")
 
-    query = db.query(Commit).filter(Commit.repository_id == repo_id)
+    query = db.query(Commit).filter(Commit.repository_id == str(repo_id))
 
     if author:
         query = query.filter(Commit.author_name.ilike(f"%{author}%"))
@@ -51,17 +48,17 @@ async def list_commits(
 @router.get("/{commit_sha}", response_model=CommitDetailResponse)
 async def get_commit(
     commit_sha: str,
-    repo_id: uuid.UUID,
+    repo_id: str,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     commit = db.query(Commit).filter(
         Commit.sha == commit_sha,
-        Commit.repository_id == repo_id,
+        Commit.repository_id == str(repo_id),
     ).first()
 
     if not commit:
-        raise HTTPException(status_code=404, detail="Commit bulunamadı")
+        raise HTTPException(status_code=404, detail="Commit bulunamadi")
 
     return CommitDetailResponse.model_validate(commit)
 
@@ -69,25 +66,25 @@ async def get_commit(
 @router.post("/{commit_sha}/analyze")
 async def analyze_commit(
     commit_sha: str,
-    repo_id: uuid.UUID,
+    repo_id: str,
     focus_areas: list[str] = Query(default=["security", "performance"]),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     commit = db.query(Commit).filter(
         Commit.sha == commit_sha,
-        Commit.repository_id == repo_id,
+        Commit.repository_id == str(repo_id),
     ).first()
 
     if not commit:
-        raise HTTPException(status_code=404, detail="Commit bulunamadı")
+        raise HTTPException(status_code=404, detail="Commit bulunamadi")
 
-    repo = db.query(Repository).filter(Repository.id == repo_id).first()
+    repo = db.query(Repository).filter(Repository.id == str(repo_id)).first()
     if not repo or not repo.local_path:
-        raise HTTPException(status_code=400, detail="Depo yerel yolu bulunamadı")
+        raise HTTPException(status_code=400, detail="Depo yerel yolu bulunamadi")
 
     git_service = GitService(repo.local_path)
-    llm_service = LLMService(provider="openai")
+    llm_service = LLMService(provider="openrouter")
 
     file_changes = git_service.get_file_changes(commit_sha, include_diff=True)
 
@@ -108,24 +105,24 @@ async def analyze_commit(
 async def explain_change(
     commit_sha: str,
     file_path: str,
-    repo_id: uuid.UUID,
+    repo_id: str,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     commit = db.query(Commit).filter(
         Commit.sha == commit_sha,
-        Commit.repository_id == repo_id,
+        Commit.repository_id == str(repo_id),
     ).first()
 
     if not commit:
-        raise HTTPException(status_code=404, detail="Commit bulunamadı")
+        raise HTTPException(status_code=404, detail="Commit bulunamadi")
 
-    repo = db.query(Repository).filter(Repository.id == repo_id).first()
+    repo = db.query(Repository).filter(Repository.id == str(repo_id)).first()
     if not repo or not repo.local_path:
-        raise HTTPException(status_code=400, detail="Depo yerel yolu bulunamadı")
+        raise HTTPException(status_code=400, detail="Depo yerel yolu bulunamadi")
 
     git_service = GitService(repo.local_path)
-    llm_service = LLMService(provider="openai")
+    llm_service = LLMService(provider="openrouter")
 
     old_content = git_service.get_file_content_at_commit(commit.parents[0] if commit.parents else "", file_path)
     new_content = git_service.get_file_content_at_commit(commit_sha, file_path)

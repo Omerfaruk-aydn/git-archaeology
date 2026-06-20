@@ -88,7 +88,7 @@ class AnalysisCreate(BaseModel):
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     max_commits: Optional[int] = Field(None, ge=1, le=100000)
-    llm_provider: str = Field(default="openai", pattern="^(openai|anthropic|local)$")
+    llm_provider: str = Field(default="openai", pattern="^(openai|anthropic|local|openrouter|azure|bedrock|gemini|groq|together|mistral|cohere|deepseek|xai|fireworks|huggingface|replicate|baidu|dashscope|moonshot|zhipuai|minimax|deepinfra|perplexity|cloudflare)$")
     llm_model: str = Field(default="gpt-4o")
     focus_areas: Optional[List[str]] = None
     include_diffs: bool = Field(default=True)
@@ -119,7 +119,7 @@ class AnalysisResult(BaseModel):
     key_changes: List[dict]
     author_contributions: List[dict]
     file_hotspots: List[dict]
-    insights: List[dict]
+    insights: List[Any]
     recommendations: List[str]
 
 

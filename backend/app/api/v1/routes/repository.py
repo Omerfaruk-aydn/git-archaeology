@@ -1,7 +1,6 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-import uuid
 
 from app.database import get_db
 from app.services.git_service import GitService
@@ -23,7 +22,7 @@ async def list_repositories(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    query = db.query(Repository).filter(Repository.owner_id == current_user.id)
+    query = db.query(Repository).filter(Repository.owner_id == str(current_user.id))
 
     if search:
         query = query.filter(Repository.name.ilike(f"%{search}%"))
@@ -47,7 +46,7 @@ async def create_repository(
 ):
     existing = db.query(Repository).filter(Repository.url == data.url).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Bu URL zaten kayıtlı")
+        raise HTTPException(status_code=400, detail="Bu URL zaten kayitli")
 
     repo = Repository(
         name=data.name,
@@ -55,7 +54,7 @@ async def create_repository(
         local_path=data.local_path,
         default_branch=data.default_branch,
         description=data.description,
-        owner_id=current_user.id,
+        owner_id=str(current_user.id),
     )
     db.add(repo)
     db.commit()
@@ -66,35 +65,35 @@ async def create_repository(
 
 @router.get("/{repo_id}", response_model=RepositoryResponse)
 async def get_repository(
-    repo_id: uuid.UUID,
+    repo_id: str,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     repo = db.query(Repository).filter(
-        Repository.id == repo_id,
-        Repository.owner_id == current_user.id,
+        Repository.id == str(repo_id),
+        Repository.owner_id == str(current_user.id),
     ).first()
 
     if not repo:
-        raise HTTPException(status_code=404, detail="Depo bulunamadı")
+        raise HTTPException(status_code=404, detail="Depo bulunamadi")
 
     return RepositoryResponse.model_validate(repo)
 
 
 @router.put("/{repo_id}", response_model=RepositoryResponse)
 async def update_repository(
-    repo_id: uuid.UUID,
+    repo_id: str,
     data: RepositoryUpdate,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     repo = db.query(Repository).filter(
-        Repository.id == repo_id,
-        Repository.owner_id == current_user.id,
+        Repository.id == str(repo_id),
+        Repository.owner_id == str(current_user.id),
     ).first()
 
     if not repo:
-        raise HTTPException(status_code=404, detail="Depo bulunamadı")
+        raise HTTPException(status_code=404, detail="Depo bulunamadi")
 
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
@@ -108,17 +107,17 @@ async def update_repository(
 
 @router.delete("/{repo_id}", status_code=204)
 async def delete_repository(
-    repo_id: uuid.UUID,
+    repo_id: str,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     repo = db.query(Repository).filter(
-        Repository.id == repo_id,
-        Repository.owner_id == current_user.id,
+        Repository.id == str(repo_id),
+        Repository.owner_id == str(current_user.id),
     ).first()
 
     if not repo:
-        raise HTTPException(status_code=404, detail="Depo bulunamadı")
+        raise HTTPException(status_code=404, detail="Depo bulunamadi")
 
     db.delete(repo)
     db.commit()
@@ -126,25 +125,25 @@ async def delete_repository(
 
 @router.post("/{repo_id}/clone")
 async def clone_repository(
-    repo_id: uuid.UUID,
+    repo_id: str,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     repo = db.query(Repository).filter(
-        Repository.id == repo_id,
-        Repository.owner_id == current_user.id,
+        Repository.id == str(repo_id),
+        Repository.owner_id == str(current_user.id),
     ).first()
 
     if not repo:
-        raise HTTPException(status_code=404, detail="Depo bulunamadı")
+        raise HTTPException(status_code=404, detail="Depo bulunamadi")
 
     if repo.local_path:
-        raise HTTPException(status_code=400, detail="Depo zaten klonlanmış")
+        raise HTTPException(status_code=400, detail="Depo zaten klonlanmis")
 
     try:
-        git_service = GitService("")
-        target_dir = f"/data/repos/{repo.id}"
-        git_service.clone_repo(repo.url, target_dir, repo.default_branch)
+        target_dir = f"C:/proje/repos/{repo.id}"
+        import subprocess
+        subprocess.run(["git", "clone", repo.url, target_dir], check=True, timeout=60)
         repo.local_path = target_dir
         db.commit()
 
@@ -155,20 +154,20 @@ async def clone_repository(
 
 @router.post("/{repo_id}/sync")
 async def sync_repository(
-    repo_id: uuid.UUID,
+    repo_id: str,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     repo = db.query(Repository).filter(
-        Repository.id == repo_id,
-        Repository.owner_id == current_user.id,
+        Repository.id == str(repo_id),
+        Repository.owner_id == str(current_user.id),
     ).first()
 
     if not repo:
-        raise HTTPException(status_code=404, detail="Depo bulunamadı")
+        raise HTTPException(status_code=404, detail="Depo bulunamadi")
 
     if not repo.local_path:
-        raise HTTPException(status_code=400, detail="Depo önce klonlanmalı")
+        raise HTTPException(status_code=400, detail="Depo once klonlanmali")
 
     git_service = GitService(repo.local_path)
     success = git_service.pull_latest(repo.default_branch)
@@ -179,4 +178,4 @@ async def sync_repository(
         db.commit()
         return {"status": "synced"}
     else:
-        raise HTTPException(status_code=500, detail="Senkronizasyon başarısız")
+        raise HTTPException(status_code=500, detail="Senkronizasyon basarisiz")
